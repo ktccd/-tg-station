@@ -44,3 +44,10 @@
 
 /mob/living/carbon/brain/flash_eyes(intensity = 1, override_blindness_check = 0, affect_silicon = 0)
 	return // no eyes, no flashing
+
+/mob/living/carbon/brain/ghost()
+	if (istype(container, /obj/item/device/mmi)) //Are you ghosting as an MMI?
+		visible_message("<span class='notice'>[container] ejects the brain!</span>") //NOTICE ME SENPAI~~
+		var/obj/item/device/mmi/mmi_container = container //We've already made sure it's the right type
+		mmi_container.eject_brain() //Eject the brain for trampling
+	..() //We still want to ghost no matter what

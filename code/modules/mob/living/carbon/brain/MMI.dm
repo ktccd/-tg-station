@@ -67,23 +67,25 @@
 		return
 	..()
 
+/obj/item/device/mmi/proc/eject_brain()
+	brainmob.container = null //Reset brainmob mmi var.
+	brainmob.loc = brain //Throw mob into brain.
+	living_mob_list -= brainmob //Get outta here
+	brain.brainmob = brainmob //Set the brain to use the brainmob
+	brainmob = null //Set mmi brainmob var to null
+
+	brain.loc = src.loc
+	brain = null //No more brain in here
+
+	update_icon()
+	name = "Man-Machine Interface"
+
 /obj/item/device/mmi/attack_self(mob/user)
 	if(!brain)
 		user << "<span class='warning'>You upend the MMI, but there's nothing in it!</span>"
 	else
 		user << "<span class='notice'>You unlock and upend the MMI, spilling the brain onto the floor.</span>"
-
-		brainmob.container = null //Reset brainmob mmi var.
-		brainmob.loc = brain //Throw mob into brain.
-		living_mob_list -= brainmob //Get outta here
-		brain.brainmob = brainmob //Set the brain to use the brainmob
-		brainmob = null //Set mmi brainmob var to null
-
-		brain.loc = usr.loc
-		brain = null //No more brain in here
-
-		update_icon()
-		name = "Man-Machine Interface"
+		eject_brain() //Flip that sucker out on the floor
 
 /obj/item/device/mmi/proc/transfer_identity(mob/living/L) //Same deal as the regular brain proc. Used for human-->robot people.
 	brainmob = new(src)
