@@ -56,15 +56,22 @@ var/list/obj/machinery/requests_console/allConsoles = list()
 	var/priority = -1 ; //Priority of the message being sent
 	var/obj/item/device/radio/Radio
 	var/emergency //If an emergency has been called by this device. Acts as both a cooldown and lets the responder know where it the emergency was triggered from
-	luminosity = 0
+	var/receive_ore_updates = FALSE //If ore redemption machines will send an update when it receives new ores.
+	obj_integrity = 300
+	max_integrity = 300
+	armor = list(melee = 70, bullet = 30, laser = 30, energy = 30, bomb = 0, bio = 0, rad = 0, fire = 90, acid = 90)
 
 /obj/machinery/requests_console/power_change()
 	..()
 	update_icon()
 
 /obj/machinery/requests_console/update_icon()
+	if(stat & NOPOWER)
+		set_light(0)
+	else
+		set_light(1.4,0.7,"#34D352")//green light
 	if(open)
-		if(hackState == 0)
+		if(!hackState)
 			icon_state="req_comp_open"
 		else
 			icon_state="req_comp_rewired"
@@ -81,10 +88,10 @@ var/list/obj/machinery/requests_console/allConsoles = list()
 		else
 			icon_state = "req_comp0"
 
-/obj/machinery/requests_console/New()
+/obj/machinery/requests_console/Initialize()
+	..()
 	name = "\improper [department] requests console"
 	allConsoles += src
-	//req_console_departments += department
 	switch(departmentType)
 		if(1)
 			if(!("[department]" in req_console_assistance))
@@ -121,8 +128,13 @@ var/list/obj/machinery/requests_console/allConsoles = list()
 	Radio = new /obj/item/device/radio(src)
 	Radio.listening = 0
 
+/obj/machinery/requests_console/Destroy()
+	QDEL_NULL(Radio)
+	allConsoles -= src
+	return ..()
+
 /obj/machinery/requests_console/attack_hand(mob/user)
-	if(..(user))
+	if(..())
 		return
 	var/dat = ""
 	if(!open)
@@ -135,7 +147,7 @@ var/list/obj/machinery/requests_console/allConsoles = list()
 						dat += "<tr>"
 						dat += "<td width='55%'>[dpt]</td>"
 						dat += "<td width='45%'><A href='?src=\ref[src];write=[ckey(dpt)]'>Normal</A> <A href='?src=\ref[src];write=[ckey(dpt)];priority=2'>High</A>"
-						if (hackState == 1)
+						if(hackState)
 							dat += "<A href='?src=\ref[src];write=[ckey(dpt)];priority=3'>EXTREME</A>"
 						dat += "</td>"
 						dat += "</tr>"
@@ -150,7 +162,7 @@ var/list/obj/machinery/requests_console/allConsoles = list()
 						dat += "<tr>"
 						dat += "<td width='55%'>[dpt]</td>"
 						dat += "<td width='45%'><A href='?src=\ref[src];write=[ckey(dpt)]'>Normal</A> <A href='?src=\ref[src];write=[ckey(dpt)];priority=2'>High</A>"
-						if (hackState == 1)
+						if(hackState)
 							dat += "<A href='?src=\ref[src];write=[ckey(dpt)];priority=3'>EXTREME</A>"
 						dat += "</td>"
 						dat += "</tr>"
@@ -165,7 +177,7 @@ var/list/obj/machinery/requests_console/allConsoles = list()
 						dat += "<tr>"
 						dat += "<td width='55%'>[dpt]</td>"
 						dat += "<td width='45%'><A href='?src=\ref[src];write=[ckey(dpt)]'>Normal</A> <A href='?src=\ref[src];write=[ckey(dpt)];priority=2'>High</A>"
-						if (hackState == 1)
+						if(hackState)
 							dat += "<A href='?src=\ref[src];write=[ckey(dpt)];priority=3'>EXTREME</A>"
 						dat += "</td>"
 						dat += "</tr>"
@@ -185,7 +197,7 @@ var/list/obj/machinery/requests_console/allConsoles = list()
 					if (Console.department == department)
 						Console.newmessagepriority = 0
 						Console.update_icon()
-						Console.SetLuminosity(1)
+
 				newmessagepriority = 0
 				update_icon()
 				var/messageComposite = ""
@@ -211,7 +223,7 @@ var/list/obj/machinery/requests_console/allConsoles = list()
 					dat += "<div class='notice'>Swipe your card to authenticate yourself</div><BR>"
 				dat += "<b>Message: </b>[message ? message : "<i>No Message</i>"]<BR>"
 				dat += "<A href='?src=\ref[src];writeAnnouncement=1'>[message ? "Edit" : "Write"] Message</A><BR><BR>"
-				if (announceAuth && message)
+				if ((announceAuth || IsAdminGhost(user)) && message)
 					dat += "<A href='?src=\ref[src];sendAnnouncement=1'>Announce Message</A><BR>"
 				else
 					dat += "<span class='linkOff'>Announce Message</span><BR>"
@@ -245,9 +257,6 @@ var/list/obj/machinery/requests_console/allConsoles = list()
 					dat += "Speaker <A href='?src=\ref[src];setSilent=0'>OFF</A>"
 				else
 					dat += "Speaker <A href='?src=\ref[src];setSilent=1'>ON</A>"
-
-		//user << browse("[dat]", "window=request_console")
-		//onclose(user, "req_console")
 		var/datum/browser/popup = new(user, "req_console", "[department] Requests Console", 450, 440)
 		popup.set_content(dat)
 		popup.set_title_image(user.browse_rsc_icon(src.icon, src.icon_state))
@@ -255,7 +264,8 @@ var/list/obj/machinery/requests_console/allConsoles = list()
 	return
 
 /obj/machinery/requests_console/Topic(href, href_list)
-	if(..())	return
+	if(..())
+		return
 	usr.set_machine(src)
 	add_fingerprint(usr)
 
@@ -291,7 +301,8 @@ var/list/obj/machinery/requests_console/allConsoles = list()
 			screen = 0
 
 	if(href_list["sendAnnouncement"])
-		if(!announcementConsole)	return
+		if(!announcementConsole)
+			return
 		minor_announce(message, "[department] Announcement:")
 		news_network.SubmitArticle(message, department, "Station Announcements", null)
 		log_say("[key_name(usr)] has made a station announcement: [message]")
@@ -373,7 +384,6 @@ var/list/obj/machinery/requests_console/allConsoles = list()
 								alert = "Message from [department][authentic]"
 								Console.createmessage(src, alert , sending, 1, 1)
 						screen = 6
-						Console.SetLuminosity(2)
 
 				if(radio_freq)
 					Radio.talk_into(src,"[alert]: <i>[message]</i>",radio_freq)
@@ -409,7 +419,8 @@ var/list/obj/machinery/requests_console/allConsoles = list()
 		if(9)		//authentication
 			screen = 9
 		if(10)		//send announcement
-			if(!announcementConsole)	return
+			if(!announcementConsole)
+				return
 			screen = 10
 		else		//main menu
 			dpt = ""
@@ -422,8 +433,10 @@ var/list/obj/machinery/requests_console/allConsoles = list()
 	//Handle silencing the console
 	switch( href_list["setSilent"] )
 		if(null)	//skip
-		if("1")	silent = 1
-		else	silent = 0
+		if("1")
+			silent = 1
+		else
+			silent = 0
 
 	updateUsrDialog()
 	return
@@ -471,37 +484,31 @@ var/list/obj/machinery/requests_console/allConsoles = list()
 				playsound(src.loc, 'sound/machines/twobeep.ogg', 50, 1)
 				say(title)
 			src.messages += "<b>From:</b> [linkedsender]<BR>[message]"
-	SetLuminosity(2)
 
 /obj/machinery/requests_console/attackby(obj/item/weapon/O, mob/user, params)
-	if (istype(O, /obj/item/weapon/crowbar))
+	if(istype(O, /obj/item/weapon/crowbar))
 		if(open)
-			user << "<span class='notice'>You close the maintenance panel.</span>"
+			to_chat(user, "<span class='notice'>You close the maintenance panel.</span>")
 			open = 0
-			icon_state="req_comp0"
 		else
-			user << "<span class='notice'>You open the maintenance panel.</span>"
+			to_chat(user, "<span class='notice'>You open the maintenance panel.</span>")
 			open = 1
-			if(hackState == 0)
-				icon_state="req_comp_open"
-			else if(hackState == 1)
-				icon_state="req_comp_rewired"
-	if (istype(O, /obj/item/weapon/screwdriver))
+		update_icon()
+		return
+	if(istype(O, /obj/item/weapon/screwdriver))
 		if(open)
-			if(hackState == 0)
-				user << "<span class='notice'>You modify the wiring.</span>"
-				hackState = 1
-				icon_state="req_comp_rewired"
-			else if(hackState == 1)
-				user << "<span class='notice'>You reset the wiring.</span>"
-				hackState = 0
-				icon_state="req_comp_open"
+			hackState = !hackState
+			if(hackState)
+				to_chat(user, "<span class='notice'>You modify the wiring.</span>")
+			else
+				to_chat(user, "<span class='notice'>You reset the wiring.</span>")
+			update_icon()
 		else
-			user << "<span class='warning'>You can't do much with that!</span>"
-	update_icon()
+			to_chat(user, "<span class='warning'>You must open the maintenance panel first!</span>")
+		return
 
 	var/obj/item/weapon/card/id/ID = O.GetID()
-	if (ID)
+	if(ID)
 		if(screen == 9)
 			msgVerified = "<font color='green'><b>Verified by [ID.registered_name] ([ID.assignment])</b></font>"
 			updateUsrDialog()
@@ -510,11 +517,13 @@ var/list/obj/machinery/requests_console/allConsoles = list()
 				announceAuth = 1
 			else
 				announceAuth = 0
-				user << "<span class='warning'>You are not authorized to send announcements!</span>"
+				to_chat(user, "<span class='warning'>You are not authorized to send announcements!</span>")
 			updateUsrDialog()
+		return
 	if (istype(O, /obj/item/weapon/stamp))
 		if(screen == 9)
 			var/obj/item/weapon/stamp/T = O
 			msgStamped = "<span class='boldnotice'>Stamped with the [T.name]</span>"
 			updateUsrDialog()
-	return
+		return
+	return ..()

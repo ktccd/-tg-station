@@ -67,10 +67,11 @@
 
 	var/list/radios = list()
 
-	var/atom/movable/virtualspeaker/virt = PoolOrNew(/atom/movable/virtualspeaker,null)
+	var/atom/movable/virtualspeaker/virt = new /atom/movable/virtualspeaker(null)
 	virt.name = name
 	virt.job = job
-	virt.languages = AM.languages
+	virt.languages_spoken = AM.languages_spoken
+	virt.languages_understood = AM.languages_understood
 	virt.source = AM
 	virt.radio = radio
 	virt.verb_say = verb_say
@@ -106,7 +107,7 @@
 	else if(data == 5)
 
 		for(var/obj/item/device/radio/R in all_radios["[freq]"])
-			if(!R.centcom)
+			if(!R.independent)
 				continue
 
 			if(R.receive_range(freq, level) > -1)
@@ -135,9 +136,9 @@
 		if(isobserver(M) && M.client && (M.client.prefs.chat_toggles & CHAT_GHOSTRADIO))
 			receive |= M
 
-	var/rendered = virt.compose_message(virt, virt.languages, message, freq, spans) //Always call this on the virtualspeaker to advoid issues.
+	var/rendered = virt.compose_message(virt, virt.languages_spoken, message, freq, spans) //Always call this on the virtualspeaker to advoid issues.
 	for(var/atom/movable/hearer in receive)
-		hearer.Hear(rendered, virt, AM.languages, message, freq, spans)
+		hearer.Hear(rendered, virt, AM.languages_spoken, message, freq, spans)
 
 	if(length(receive))
 		// --- This following recording is intended for research and feedback in the use of department radio channels ---
@@ -179,7 +180,7 @@
 		var/mob/living/carbon/human/H = new
 		M = H
 
-	var/datum/radio_frequency/connection = radio_controller.return_frequency(frequency)
+	var/datum/radio_frequency/connection = SSradio.return_frequency(frequency)
 
 	var/display_freq = connection.frequency
 
@@ -209,7 +210,7 @@
 	// --- Broadcast to syndicate radio! ---
 
 	else if(data == 3)
-		var/datum/radio_frequency/syndicateconnection = radio_controller.return_frequency(SYND_FREQ)
+		var/datum/radio_frequency/syndicateconnection = SSradio.return_frequency(SYND_FREQ)
 
 		for (var/obj/item/device/radio/R in syndicateconnection.devices["[RADIO_CHAT]"])
 			var/turf/position = get_turf(R)
@@ -221,8 +222,8 @@
 	else if(data == 5)
 
 		for(var/obj/item/device/radio/R in all_radios["[RADIO_CHAT]"])
-			if(R.centcom)
-				receive |= R.send_hear(CENTCOM_FREQ)
+			if(R.independent)
+				receive |= R.send_hear(display_freq)
 
 	// --- Broadcast to ALL radio devices ---
 
@@ -258,7 +259,7 @@
 
 		// --- Can understand the speech ---
 
-		if (R.languages & M.languages)
+		if (R.languages_understood & M.languages_spoken)
 
 			heard_normal += R
 

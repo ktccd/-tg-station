@@ -7,11 +7,16 @@ var/const/CHUNK_SIZE = 16 // Only chunk sizes that are to the power of 2. E.g: 2
 var/datum/cameranet/cameranet = new()
 
 /datum/cameranet
+	var/name = "Camera Net" // Name to show for VV and stat()
+
 	// The cameras on the map, no matter if they work or not. Updated in obj/machinery/camera.dm by New() and Del().
 	var/list/cameras = list()
 	// The chunks of the map, mapping the areas that the cameras can see.
 	var/list/chunks = list()
 	var/ready = 0
+
+	// The object used for the clickable stat() button.
+	var/obj/effect/statclick/statclick
 
 // Checks if a chunk has been Generated in x, y, z.
 /datum/cameranet/proc/chunkGenerated(x, y, z)
@@ -110,7 +115,7 @@ var/datum/cameranet/cameranet = new()
 		var/x2 = min(world.maxx, T.x + (CHUNK_SIZE / 2)) & ~(CHUNK_SIZE - 1)
 		var/y2 = min(world.maxy, T.y + (CHUNK_SIZE / 2)) & ~(CHUNK_SIZE - 1)
 
-		//world << "X1: [x1] - Y1: [y1] - X2: [x2] - Y2: [y2]"
+		//to_chat(world, "X1: [x1] - Y1: [y1] - X2: [x2] - Y2: [y2]")
 
 		for(var/x = x1; x <= x2; x += CHUNK_SIZE)
 			for(var/y = y1; y <= y2; y += CHUNK_SIZE)
@@ -142,6 +147,11 @@ var/datum/cameranet/cameranet = new()
 			return 1
 	return 0
 
+/datum/cameranet/proc/stat_entry()
+	if(!statclick)
+		statclick = new/obj/effect/statclick/debug(null, "Initializing...", src)
+
+	stat(name, statclick.update("Cameras: [cameranet.cameras.len] | Chunks: [cameranet.chunks.len]"))
 
 // Debug verb for VVing the chunk that the turf is in.
 /*

@@ -8,7 +8,7 @@
 	icon_living = "human_male"
 	icon_dead = "human_male"
 	gender = NEUTER
-	a_intent = "harm"
+	a_intent = INTENT_HARM
 
 	response_help = "touches"
 	response_disarm = "pushes"
@@ -18,7 +18,8 @@
 	health = 50000
 	healable = 0
 
-	harm_intent_damage = 70
+	harm_intent_damage = 10
+	obj_damage = 100
 	melee_damage_lower = 68
 	melee_damage_upper = 83
 	attacktext = "claws"
@@ -31,6 +32,7 @@
 	move_to_delay = 0 // Very fast
 
 	animate_movement = NO_STEPS // Do not animate movement, you jump around as you're a scary statue.
+	hud_possible = list(ANTAG_HUD)
 
 	see_in_dark = 13
 	vision_range = 12
@@ -41,7 +43,6 @@
 
 	sight = SEE_SELF|SEE_MOBS|SEE_OBJS|SEE_TURFS
 	anchored = 1
-	status_flags = GODMODE // Cannot push also
 
 	var/cannot_be_seen = 1
 	var/mob/living/creator = null
@@ -50,7 +51,7 @@
 
 // No movement while seen code.
 
-/mob/living/simple_animal/hostile/statue/New(loc, var/mob/living/creator)
+/mob/living/simple_animal/hostile/statue/Initialize(mapload, var/mob/living/creator)
 	..()
 	// Give spells
 	mob_spell_list += new /obj/effect/proc_holder/spell/aoe_turf/flicker_lights(src)
@@ -58,16 +59,22 @@
 	mob_spell_list += new /obj/effect/proc_holder/spell/targeted/night_vision(src)
 
 	// Give nightvision
-	see_invisible = SEE_INVISIBLE_OBSERVER_NOLIGHTING
+	see_invisible = SEE_INVISIBLE_NOLIGHTING
 
 	// Set creator
 	if(creator)
 		src.creator = creator
 
+/mob/living/simple_animal/hostile/statue/med_hud_set_health()
+	return //we're a statue we're invincible
+
+/mob/living/simple_animal/hostile/statue/med_hud_set_status()
+	return //we're a statue we're invincible
+
 /mob/living/simple_animal/hostile/statue/Move(turf/NewLoc)
 	if(can_be_seen(NewLoc))
 		if(client)
-			src << "<span class='warning'>You cannot move, there are eyes on you!</span>"
+			to_chat(src, "<span class='warning'>You cannot move, there are eyes on you!</span>")
 		return 0
 	return ..()
 
@@ -85,10 +92,10 @@
 /mob/living/simple_animal/hostile/statue/AttackingTarget()
 	if(can_be_seen(get_turf(loc)))
 		if(client)
-			src << "<span class='warning'>You cannot attack, there are eyes on you!</span>"
-			return
+			to_chat(src, "<span class='warning'>You cannot attack, there are eyes on you!</span>")
+		return FALSE
 	else
-		..()
+		return ..()
 
 /mob/living/simple_animal/hostile/statue/DestroySurroundings()
 	if(!can_be_seen(get_turf(loc)))
@@ -103,8 +110,8 @@
 		return null
 	// Check for darkness
 	var/turf/T = get_turf(loc)
-	if(T && destination)
-		if(T.lighting_lumcount<1 && destination.lighting_lumcount<1) // No one can see us in the darkness, right?
+	if(T && destination && T.lighting_object)
+		if(T.get_lumcount()<0.1 && destination.get_lumcount()<0.1) // No one can see us in the darkness, right?
 			return null
 		if(T == destination)
 			destination = null
@@ -117,7 +124,7 @@
 	// This loop will, at most, loop twice.
 	for(var/atom/check in check_list)
 		for(var/mob/living/M in viewers(world.view + 1, check) - src)
-			if(M.client && CanAttack(M) && !issilicon(M))
+			if(M.client && CanAttack(M) && !M.has_unlimited_silicon_privilege)
 				if(!M.eye_blind)
 					return M
 		for(var/obj/mecha/M in view(world.view + 1, check)) //assuming if you can see them they can see you
@@ -133,8 +140,8 @@
 
 // Turn to dust when gibbed
 
-/mob/living/simple_animal/hostile/statue/gib(animation = 0)
-	dust(animation)
+/mob/living/simple_animal/hostile/statue/gib()
+	dust()
 
 
 // Stop attacking clientless mobs
@@ -163,7 +170,7 @@
 	clothes_req = 0
 	range = 14
 
-/obj/effect/proc_holder/spell/aoe_turf/flicker_lights/cast(list/targets)
+/obj/effect/proc_holder/spell/aoe_turf/flicker_lights/cast(list/targets,mob/user = usr)
 	for(var/turf/T in targets)
 		for(var/obj/machinery/light/L in T)
 			L.flicker()
@@ -179,11 +186,11 @@
 	clothes_req = 0
 	range = 10
 
-/obj/effect/proc_holder/spell/aoe_turf/blindness/cast(list/targets)
+/obj/effect/proc_holder/spell/aoe_turf/blindness/cast(list/targets,mob/user = usr)
 	for(var/mob/living/L in living_mob_list)
 		var/turf/T = get_turf(L.loc)
 		if(T && T in targets)
-			L.eye_blind = max(L.eye_blind, 4)
+			L.blind_eyes(4)
 	return
 
 //Toggle Night Vision
@@ -198,21 +205,20 @@
 	range = -1
 	include_user = 1
 
-/obj/effect/proc_holder/spell/targeted/night_vision/cast(list/targets)
+/obj/effect/proc_holder/spell/targeted/night_vision/cast(list/targets,mob/user = usr)
 	for(var/mob/living/target in targets)
-		if(istype(target, /mob/living/carbon/human))
-			var/mob/living/carbon/human/H = target
-			if(H.dna.species.invis_sight == SEE_INVISIBLE_LIVING)
-				H.dna.species.invis_sight = SEE_INVISIBLE_OBSERVER_NOLIGHTING
-				name = "Toggle Nightvision \[ON]"
-			else
-				H.dna.species.invis_sight = SEE_INVISIBLE_LIVING
-				name = "Toggle Nightvision \[OFF]"
-
-		else
+		if(!iscarbon(target)) //Carbons should be toggling their vision via organ, this spell is used as a power for simple mobs
 			if(target.see_invisible == SEE_INVISIBLE_LIVING)
-				target.see_invisible = SEE_INVISIBLE_OBSERVER_NOLIGHTING
+				target.see_invisible = SEE_INVISIBLE_NOLIGHTING
 				name = "Toggle Nightvision \[ON]"
 			else
 				target.see_invisible = SEE_INVISIBLE_LIVING
 				name = "Toggle Nightvision \[OFF]"
+
+/mob/living/simple_animal/hostile/statue/sentience_act()
+	faction -= "neutral"
+
+/mob/living/simple_animal/hostile/statue/restrained(ignore_grab)
+	. = ..()
+	if(can_be_seen(loc))
+		return 1

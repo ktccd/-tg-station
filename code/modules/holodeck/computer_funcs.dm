@@ -52,7 +52,7 @@
 			if(world.time < (last_change + 15))//To prevent super-spam clicking, reduced process size and annoyance -Sieve
 				return
 			if(get_dist(usr,src) <= 3)
-				usr << "<span class='warning'>ERROR. Recalibrating projection apparatus.</span>"
+				to_chat(usr, "<span class='warning'>ERROR. Recalibrating projection apparatus.</span>")
 				return
 
 	last_change = world.time
@@ -70,15 +70,25 @@
 	// should also remove/limit/filter reagents?
 	// this is an exercise left to others I'm afraid.  -Sayu
 	spawned = A.copy_contents_to(linked, 1, nerf_weapons = !emagged)
+	for(var/obj/machinery/M in spawned)
+		M.flags |= NODECONSTRUCT
+	for(var/obj/structure/S in spawned)
+		S.flags |= NODECONSTRUCT
 	effects = list()
 
 	spawn(30)
+		var/list/added = list()
 		for(var/obj/effect/holodeck_effect/HE in spawned)
 			effects += HE
 			spawned -= HE
 			var/atom/x = HE.activate(src)
 			if(istype(x) || islist(x))
 				spawned += x // holocarp are not forever
+				added += x
+		for(var/obj/machinery/M in added)
+			M.flags |= NODECONSTRUCT
+		for(var/obj/structure/S in added)
+			S.flags |= NODECONSTRUCT
 
 /obj/machinery/computer/holodeck/proc/derez(var/obj/obj, var/silent = 1, var/forced = 0)
 	// Emagging a machine creates an anomaly in the derez systems.
@@ -92,18 +102,10 @@
 		return
 	var/turf/T = get_turf(obj)
 	for(var/atom/movable/AM in obj.contents) // these should be derezed if they were generated
-		AM.loc = T							// otherwise make sure they are dropped
-
-	if(istype(obj))
-		var/mob/M = obj.loc
-		if(ismob(M))
-			M.unEquip(obj, 1) //Holoweapons should always drop.
-
-	for(var/mob/M in obj.contents)
-		M.loc = obj.loc
-		silent = 0
+		AM.loc = T
+		if(ismob(AM))
+			silent = FALSE					// otherwise make sure they are dropped
 
 	if(!silent)
-		var/obj/oldobj = obj
-		visible_message("The [oldobj.name] fades away!")
+		visible_message("The [obj.name] fades away!")
 	qdel(obj)

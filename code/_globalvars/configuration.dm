@@ -1,5 +1,4 @@
 var/datum/configuration/config = null
-var/datum/protected_configuration/protected_config = null
 
 var/host = null
 var/join_motd = null
@@ -26,6 +25,10 @@ var/Debug2 = 0
 var/global/comms_key = "default_pwd"
 var/global/comms_allowed = 0 //By default, the server does not allow messages to be sent to it, unless the key is strong enough (this is to prevent misconfigured servers from becoming vulnerable)
 
+var/global/medal_hub = null
+var/global/medal_pass = " "
+var/global/medals_enabled = TRUE	//will be auto set to false if the game fails contacting the medal hub to prevent unneeded calls.
+
 
 //This was a define, but I changed it to a variable so it can be changed in-game.(kept the all-caps definition because... code...) -Errorage
 var/MAX_EX_DEVESTATION_RANGE = 3
@@ -33,4 +36,5 @@ var/MAX_EX_HEAVY_RANGE = 7
 var/MAX_EX_LIGHT_RANGE = 14
 var/MAX_EX_FLASH_RANGE = 14
 var/MAX_EX_FLAME_RANGE = 14
+var/DYN_EX_SCALE = 0.5
 
